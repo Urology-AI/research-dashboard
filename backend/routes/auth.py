@@ -20,6 +20,10 @@ from core.audit import log_audit_event
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
+def _to_user_response(user: User) -> UserResponse:
+    return UserResponse.model_validate(user, from_attributes=True)
+
+
 @router.post("/login", response_model=Token)
 async def login(
     request: Request,
@@ -90,7 +94,7 @@ async def login(
             "access_token": temp_token,
             "token_type": "bearer",
             "requires_2fa": True,
-            "user": UserResponse.from_orm(user)
+            "user": _to_user_response(user)
         }
     
     # Update last login
@@ -111,8 +115,12 @@ async def login(
         expires_at=expires_at,
         is_active="true"
     )
-    db.add(session)
-    db.commit()
+    try:
+        db.add(session)
+        db.commit()
+    except Exception:
+        # Do not block login if session tracking insert fails.
+        db.rollback()
     
     # Log successful login
     log_audit_event(
@@ -130,7 +138,7 @@ async def login(
         "access_token": access_token,
         "token_type": "bearer",
         "requires_2fa": False,
-        "user": UserResponse.from_orm(user)
+        "user": _to_user_response(user)
     }
 
 
@@ -191,7 +199,7 @@ async def register(
         success=True
     )
     
-    return UserResponse.from_orm(new_user)
+    return _to_user_response(new_user)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -201,7 +209,7 @@ async def get_current_user_info(
     """
     Get current user information
     """
-    return UserResponse.from_orm(current_user)
+    return _to_user_response(current_user)
 
 
 @router.put("/me", response_model=UserResponse)
@@ -259,7 +267,7 @@ async def update_current_user(
             success=True
         )
     
-    return UserResponse.from_orm(current_user)
+    return _to_user_response(current_user)
 
 
 @router.post("/logout")
