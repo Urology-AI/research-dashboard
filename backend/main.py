@@ -5,6 +5,7 @@ Data-driven analytics platform for patient data analysis and visualization
 """
 import os
 import warnings
+from urllib.parse import urlsplit
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -49,6 +50,50 @@ from routes.clinical_reports import router as clinical_reports_router
 # Load environment variables
 load_dotenv()
 
+
+def _normalize_origin(origin: str) -> str:
+    cleaned = origin.strip().strip('"').strip("'").rstrip("/")
+    if not cleaned:
+        return ""
+    if cleaned == "*":
+        return cleaned
+
+    parsed = urlsplit(cleaned)
+    if parsed.scheme and parsed.netloc:
+        # CORS expects scheme://host[:port] only (no path/query).
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return cleaned
+
+
+def _get_allowed_origins() -> list[str]:
+    configured = os.getenv("ALLOWED_ORIGINS", "")
+
+    default_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    environment = os.getenv("ENVIRONMENT", "development").lower()
+    if environment == "production":
+        # Safe default for this deployment target to prevent CORS lockout.
+        default_origins.append("https://urology-ai.github.io")
+
+    raw_items = [item for item in configured.replace("\n", ",").split(",") if item.strip()]
+    if not raw_items:
+        raw_items = default_origins
+    else:
+        # Keep local origins available unless user explicitly wants strict external-only.
+        include_local = os.getenv("ALLOWED_ORIGINS_INCLUDE_LOCAL", "true").lower() == "true"
+        if include_local:
+            raw_items.extend(default_origins[:2])
+
+    normalized: list[str] = []
+    for item in raw_items:
+        origin = _normalize_origin(item)
+        if origin and origin not in normalized:
+            normalized.append(origin)
+    return normalized
+
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -87,10 +132,11 @@ if rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware, requests_per_minute=rate_limit_requests)
 
 # CORS middleware (configure for production)
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+allowed_origins = _get_allowed_origins()
+print(f"CORS allowed origins: {allowed_origins}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in allowed_origins],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

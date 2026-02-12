@@ -113,6 +113,10 @@ DEFAULT_ADMIN_PASSWORD=<change-this-password>
 BOOTSTRAP_BASELINE_DATA_ENABLED=true
 ```
 
+`ALLOWED_ORIGINS` must contain origin-only values (scheme + host), not paths.
+Correct: `https://urology-ai.github.io`  
+Incorrect: `https://urology-ai.github.io/research-dashboard`
+
 On a fresh database, preflight will create:
 - one default admin user (if none exists)
 - one baseline non-PHI record in core data tables (patients/procedures/lab_results/follow_ups/data_uploads) only if those tables are empty
