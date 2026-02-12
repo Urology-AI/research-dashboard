@@ -1,7 +1,7 @@
 """
 Health check and info endpoints
 """
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from datetime import datetime
 import os
 from core.preflight import run_database_preflight_checks
@@ -52,12 +52,16 @@ async def health_check(request: Request):
 
 
 @router.get("/health/database")
-async def database_health_check():
+async def database_health_check(full: bool = Query(False, description="Run full CRUD/storage probes")):
     """
     Database health endpoint.
     Validates schema/readiness and CRUD capability checks.
     """
-    report = run_database_preflight_checks()
+    report = run_database_preflight_checks(
+        bootstrap_defaults=False,
+        run_crud_probe=full,
+        run_storage_probe=full,
+    )
     return {
         "status": "online" if report.get("ready") else "degraded",
         "timestamp": datetime.utcnow().isoformat(),

@@ -36,6 +36,12 @@ services:
         value: "180"
       - key: STARTUP_PREFLIGHT_STRICT
         value: "true"
+      - key: STARTUP_BOOTSTRAP_DEFAULTS
+        value: "true"
+      - key: STARTUP_RUN_CRUD_PROBE
+        value: "true"
+      - key: STARTUP_RUN_STORAGE_PROBE
+        value: "false"
       - key: BOOTSTRAP_DEFAULT_ADMIN_ENABLED
         value: "true"
       - key: DEFAULT_ADMIN_USERNAME

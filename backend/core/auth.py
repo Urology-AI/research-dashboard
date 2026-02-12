@@ -39,12 +39,13 @@ def get_db():
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
+    now = datetime.utcnow()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # Add nonce-like claims so repeated logins don't collide on identical JWT strings.
-    to_encode.update({"exp": expire, "iat": datetime.utcnow(), "jti": uuid4().hex})
+    to_encode.update({"exp": expire, "iat": int(now.timestamp()), "jti": uuid4().hex})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 

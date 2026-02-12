@@ -110,7 +110,24 @@ strict_preflight = os.getenv(
     "STARTUP_PREFLIGHT_STRICT",
     "true" if environment == "production" else "false",
 ).lower() == "true"
-run_startup_preflight(strict=strict_preflight)
+startup_bootstrap_defaults = os.getenv(
+    "STARTUP_BOOTSTRAP_DEFAULTS",
+    "true" if environment == "production" else "false",
+).lower() == "true"
+startup_run_crud_probe = os.getenv(
+    "STARTUP_RUN_CRUD_PROBE",
+    "true" if environment == "production" else "false",
+).lower() == "true"
+startup_run_storage_probe = os.getenv(
+    "STARTUP_RUN_STORAGE_PROBE",
+    "false",
+).lower() == "true"
+run_startup_preflight(
+    strict=strict_preflight,
+    bootstrap_defaults=startup_bootstrap_defaults,
+    run_crud_probe=startup_run_crud_probe,
+    run_storage_probe=startup_run_storage_probe,
+)
 
 # Create FastAPI app
 app = FastAPI(

@@ -106,6 +106,10 @@ ALLOWED_ORIGINS=https://urology-ai.github.io
 FORCE_HTTPS=true
 SUPABASE_STORAGE_BUCKET=research-dashboard-storage
 SUPABASE_STORAGE_REQUIRED=true
+STARTUP_PREFLIGHT_STRICT=true
+STARTUP_BOOTSTRAP_DEFAULTS=true
+STARTUP_RUN_CRUD_PROBE=true
+STARTUP_RUN_STORAGE_PROBE=false
 BOOTSTRAP_DEFAULT_ADMIN_ENABLED=true
 DEFAULT_ADMIN_USERNAME=admin
 DEFAULT_ADMIN_EMAIL=admin@research-dashboard.local
@@ -120,6 +124,10 @@ Incorrect: `https://urology-ai.github.io/research-dashboard`
 On a fresh database, preflight will create:
 - one default admin user (if none exists)
 - one baseline non-PHI record in core data tables (patients/procedures/lab_results/follow_ups/data_uploads) only if those tables are empty
+
+Health endpoint behavior is now split:
+- `GET /health/database` runs lightweight checks by default (no bootstrap, no CRUD/storage probes)
+- `GET /health/database?full=true` runs full probes
 
 ### 3) Deploy Frontend on GitHub Pages
 

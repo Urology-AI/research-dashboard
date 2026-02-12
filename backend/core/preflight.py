@@ -197,7 +197,12 @@ def _ensure_baseline_records(
         seeded_records.append("data_uploads")
 
 
-def run_database_preflight_checks() -> Dict[str, Any]:
+def run_database_preflight_checks(
+    *,
+    bootstrap_defaults: bool = True,
+    run_crud_probe: bool = True,
+    run_storage_probe: bool = True,
+) -> Dict[str, Any]:
     """Run database readiness checks and return a structured report."""
     report: Dict[str, Any] = {
         "backend": engine.url.get_backend_name(),
@@ -258,9 +263,13 @@ def run_database_preflight_checks() -> Dict[str, Any]:
             return report
 
         # Bootstrap defaults on fresh databases (idempotent).
-        admin_user_id = _ensure_default_admin(db, report)
-        _ensure_baseline_records(db, report, admin_user_id)
-        db.commit()
+        admin_user_id = None
+        if bootstrap_defaults:
+            admin_user_id = _ensure_default_admin(db, report)
+            _ensure_baseline_records(db, report, admin_user_id)
+            db.commit()
+        else:
+            report["bootstrap"]["admin_status"] = "skipped"
 
         # Relevant data checks (non-fatal warning if missing admin)
         from models import Patient, User, UserRole
@@ -279,45 +288,59 @@ def run_database_preflight_checks() -> Dict[str, Any]:
                 "No admin user found. Create one with: python scripts/create_admin_user.py"
             )
 
-        # CRUD probe using a temporary table so production data is untouched.
-        db.execute(
-            text(
-                "CREATE TEMP TABLE IF NOT EXISTS __db_preflight_probe (id INTEGER, value TEXT)"
+        if run_crud_probe:
+            # CRUD probe using a temporary table so production data is untouched.
+            db.execute(
+                text(
+                    "CREATE TEMP TABLE IF NOT EXISTS __db_preflight_probe (id INTEGER, value TEXT)"
+                )
             )
-        )
-        db.execute(
-            text("INSERT INTO __db_preflight_probe (id, value) VALUES (:id, :value)"),
-            {"id": 1, "value": "insert_ok"},
-        )
-        report["crud_checks"]["insert"] = True
+            db.execute(
+                text("INSERT INTO __db_preflight_probe (id, value) VALUES (:id, :value)"),
+                {"id": 1, "value": "insert_ok"},
+            )
+            report["crud_checks"]["insert"] = True
 
-        db.execute(
-            text("UPDATE __db_preflight_probe SET value = :value WHERE id = :id"),
-            {"id": 1, "value": "update_ok"},
-        )
-        updated_value = db.execute(
-            text("SELECT value FROM __db_preflight_probe WHERE id = :id"),
-            {"id": 1},
-        ).scalar()
-        report["crud_checks"]["update"] = updated_value == "update_ok"
+            db.execute(
+                text("UPDATE __db_preflight_probe SET value = :value WHERE id = :id"),
+                {"id": 1, "value": "update_ok"},
+            )
+            updated_value = db.execute(
+                text("SELECT value FROM __db_preflight_probe WHERE id = :id"),
+                {"id": 1},
+            ).scalar()
+            report["crud_checks"]["update"] = updated_value == "update_ok"
 
-        db.execute(
-            text("DELETE FROM __db_preflight_probe WHERE id = :id"),
-            {"id": 1},
-        )
-        remaining = db.execute(
-            text("SELECT COUNT(*) FROM __db_preflight_probe WHERE id = :id"),
-            {"id": 1},
-        ).scalar()
-        report["crud_checks"]["delete"] = int(remaining or 0) == 0
+            db.execute(
+                text("DELETE FROM __db_preflight_probe WHERE id = :id"),
+                {"id": 1},
+            )
+            remaining = db.execute(
+                text("SELECT COUNT(*) FROM __db_preflight_probe WHERE id = :id"),
+                {"id": 1},
+            ).scalar()
+            report["crud_checks"]["delete"] = int(remaining or 0) == 0
 
-        db.execute(text("DROP TABLE IF EXISTS __db_preflight_probe"))
-        db.commit()
+            db.execute(text("DROP TABLE IF EXISTS __db_preflight_probe"))
+            db.commit()
+            report["crud_ok"] = all(report["crud_checks"].values())
+        else:
+            report["crud_ok"] = True
+            report["warnings"].append("CRUD probe skipped by configuration.")
 
-        report["crud_ok"] = all(report["crud_checks"].values())
-        storage_report = run_storage_preflight_check()
-        report["storage"] = storage_report
-        report["storage_ok"] = bool(storage_report.get("ok", False))
+        if run_storage_probe:
+            storage_report = run_storage_preflight_check()
+            report["storage"] = storage_report
+            report["storage_ok"] = bool(storage_report.get("ok", False))
+        else:
+            report["storage"] = {
+                "configured": True,
+                "required": False,
+                "ok": True,
+                "details": "Storage preflight skipped by configuration.",
+            }
+            report["storage_ok"] = True
+            report["warnings"].append("Storage preflight skipped by configuration.")
 
         if not report["storage_ok"] and storage_report.get("required", False):
             report["errors"].append(
@@ -343,14 +366,24 @@ def run_database_preflight_checks() -> Dict[str, Any]:
     return report
 
 
-def run_startup_preflight(strict: bool = False) -> Dict[str, Any]:
+def run_startup_preflight(
+    strict: bool = False,
+    *,
+    bootstrap_defaults: bool = True,
+    run_crud_probe: bool = True,
+    run_storage_probe: bool = True,
+) -> Dict[str, Any]:
     """
     Run preflight checks and optionally fail hard if checks fail.
 
     Args:
         strict: If True, raise RuntimeError when preflight is not ready.
     """
-    report = run_database_preflight_checks()
+    report = run_database_preflight_checks(
+        bootstrap_defaults=bootstrap_defaults,
+        run_crud_probe=run_crud_probe,
+        run_storage_probe=run_storage_probe,
+    )
     if strict and not report["ready"]:
         raise RuntimeError(f"Database preflight failed: {report}")
     return report
