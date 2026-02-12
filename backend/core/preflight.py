@@ -79,6 +79,9 @@ def _ensure_default_admin(db, report: Dict[str, Any]) -> Optional[int]:
         target_user.role = UserRole.ADMIN
         target_user.is_active = True
         target_user.hashed_password = User.hash_password(password)
+        # Fix legacy .local email addresses to valid format.
+        if target_user.email.endswith("@research-dashboard.local"):
+            target_user.email = email
         db.flush()
         report["bootstrap"]["admin_status"] = "promoted_existing_user"
         report["bootstrap"]["admin_username"] = target_user.username

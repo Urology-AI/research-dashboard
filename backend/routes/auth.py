@@ -22,9 +22,20 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 def _to_user_response(user: User) -> UserResponse:
     # Support both Pydantic v2 (model_validate) and v1 (from_orm).
+    # Bypass strict email validation for response models (legacy .local emails are OK).
+    user_dict = {
+        "id": user.id,
+        "email": str(user.email),  # Force string conversion, bypass EmailStr validation
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+    }
     if hasattr(UserResponse, "model_validate"):
-        return UserResponse.model_validate(user, from_attributes=True)
-    return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user_dict)
+    return UserResponse(**user_dict)
 
 
 @router.post("/login", response_model=Token)
