@@ -31,6 +31,7 @@ import MLStatistics from './pages/MLStatistics';
 import ClinicalReports from './pages/ClinicalReports';
 import ResearchAnalytics from './pages/ResearchAnalytics';
 import ErrorAnalysis from './pages/ErrorAnalysis';
+import { APP_BASE_PATH } from './utils/appPath';
 
 // Global security check - enforce HTTPS in production
 if (process.env.NODE_ENV === 'production' && window.location.protocol !== 'https:') {
@@ -44,7 +45,7 @@ function AppContent() {
   return (
         <MUIThemeProvider theme={theme}>
           <CssBaseline />
-          <Router>
+          <Router basename={APP_BASE_PATH || undefined}>
             <AuthProvider>
               <ResearchProvider>
           <Routes>

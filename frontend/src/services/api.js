@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toAppPath } from '../utils/appPath';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -29,7 +30,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      window.location.href = toAppPath('/login');
     }
     return Promise.reject(error);
   }

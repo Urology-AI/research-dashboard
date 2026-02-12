@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { toAppPath } from '../utils/appPath';
 
 const AuthContext = createContext(null);
 
@@ -95,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     // Use window.location instead of navigate since we're outside Router
-    window.location.href = '/login';
+    window.location.href = toAppPath('/login');
   };
 
   const isAdmin = () => {
