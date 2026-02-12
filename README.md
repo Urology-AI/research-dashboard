@@ -54,6 +54,7 @@ npm start
 
 ### First Login
 Navigate to http://localhost:3000/login and use the admin credentials from `create_admin_user.py`.
+If you skip manual admin creation, startup preflight auto-creates a default admin from env vars (`DEFAULT_ADMIN_USERNAME`, `DEFAULT_ADMIN_PASSWORD`) when no admin user exists.
 
 ## Environment
 
@@ -105,7 +106,16 @@ ALLOWED_ORIGINS=https://urology-ai.github.io
 FORCE_HTTPS=true
 SUPABASE_STORAGE_BUCKET=research-dashboard-storage
 SUPABASE_STORAGE_REQUIRED=true
+BOOTSTRAP_DEFAULT_ADMIN_ENABLED=true
+DEFAULT_ADMIN_USERNAME=admin
+DEFAULT_ADMIN_EMAIL=admin@research-dashboard.local
+DEFAULT_ADMIN_PASSWORD=<change-this-password>
+BOOTSTRAP_BASELINE_DATA_ENABLED=true
 ```
+
+On a fresh database, preflight will create:
+- one default admin user (if none exists)
+- one baseline non-PHI record in core data tables (patients/procedures/lab_results/follow_ups/data_uploads) only if those tables are empty
 
 ### 3) Deploy Frontend on GitHub Pages
 

@@ -6,10 +6,14 @@ These checks validate:
 - Required schema tables
 - CRUD capability (insert/update/delete) via a temporary table
 - Presence of at least one admin user (warning only)
+- Bootstrap defaults (create admin + baseline records when empty)
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import json
+import os
+from datetime import date
+from typing import Any, Dict, List, Optional
 from sqlalchemy import inspect, text
 
 from .database import Base, engine, SessionLocal
@@ -28,6 +32,169 @@ REQUIRED_TABLES: List[str] = [
     "user_2fa",
     "audit_logs",
 ]
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name, str(default)).strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _ensure_default_admin(db, report: Dict[str, Any]) -> Optional[int]:
+    """
+    Ensure at least one admin exists. Creates or promotes a user if needed.
+    """
+    from models import User, UserRole
+
+    if not _env_bool("BOOTSTRAP_DEFAULT_ADMIN_ENABLED", True):
+        report["bootstrap"]["warnings"].append(
+            "Default admin bootstrap is disabled (BOOTSTRAP_DEFAULT_ADMIN_ENABLED=false)."
+        )
+        return None
+
+    existing_admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
+    if existing_admin:
+        report["bootstrap"]["admin_status"] = "existing"
+        report["bootstrap"]["admin_username"] = existing_admin.username
+        return existing_admin.id
+
+    username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin").strip() or "admin"
+    email = (
+        os.getenv("DEFAULT_ADMIN_EMAIL", "admin@research-dashboard.local").strip()
+        or "admin@research-dashboard.local"
+    )
+    password = (
+        os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMeNow123!").strip()
+        or "ChangeMeNow123!"
+    )
+    full_name = (
+        os.getenv("DEFAULT_ADMIN_FULL_NAME", "Default Admin").strip()
+        or "Default Admin"
+    )
+
+    # Try promoting an existing user before creating a new one.
+    user_by_username = db.query(User).filter(User.username == username).first()
+    user_by_email = db.query(User).filter(User.email == email).first()
+    target_user = user_by_username or user_by_email
+    if target_user:
+        target_user.role = UserRole.ADMIN
+        target_user.is_active = True
+        target_user.hashed_password = User.hash_password(password)
+        db.flush()
+        report["bootstrap"]["admin_status"] = "promoted_existing_user"
+        report["bootstrap"]["admin_username"] = target_user.username
+    else:
+        new_admin = User(
+            username=username,
+            email=email,
+            hashed_password=User.hash_password(password),
+            full_name=full_name,
+            role=UserRole.ADMIN,
+            is_active=True,
+        )
+        db.add(new_admin)
+        db.flush()
+        report["bootstrap"]["admin_status"] = "created"
+        report["bootstrap"]["admin_username"] = new_admin.username
+        target_user = new_admin
+
+    report["bootstrap"]["warnings"].append(
+        "Default admin bootstrap used. Change DEFAULT_ADMIN_PASSWORD immediately."
+    )
+    return target_user.id
+
+
+def _ensure_baseline_records(
+    db,
+    report: Dict[str, Any],
+    admin_user_id: Optional[int],
+) -> None:
+    """
+    Insert one baseline non-PHI record per core data table, only when empty.
+    """
+    from models import DataUpload, FollowUp, LabResult, Patient, Procedure, ProcedureType
+
+    if not _env_bool("BOOTSTRAP_BASELINE_DATA_ENABLED", True):
+        report["bootstrap"]["warnings"].append(
+            "Baseline data bootstrap disabled (BOOTSTRAP_BASELINE_DATA_ENABLED=false)."
+        )
+        return
+
+    today = date.today()
+    seeded_records: List[str] = report["bootstrap"]["seeded_records"]
+
+    patient = db.query(Patient).order_by(Patient.id.asc()).first()
+    if db.query(Patient).count() == 0:
+        patient = Patient(
+            mrn=os.getenv("BOOTSTRAP_DEFAULT_MRN", "BETA-TEST-0001"),
+            first_name="BETA",
+            last_name="TEST PATIENT",
+            gender="U",
+            diagnosis="BETA TESTING DATA - NOT FOR CLINICAL USE",
+        )
+        db.add(patient)
+        db.flush()
+        seeded_records.append("patients")
+
+    if db.query(Procedure).count() == 0 and patient is not None:
+        db.add(
+            Procedure(
+                patient_id=patient.id,
+                procedure_type=ProcedureType.OTHER,
+                procedure_date=today,
+                provider="System Bootstrap",
+                facility="Research Dashboard",
+                notes="Auto-generated baseline record for deployment validation.",
+            )
+        )
+        seeded_records.append("procedures")
+
+    if db.query(LabResult).count() == 0 and patient is not None:
+        db.add(
+            LabResult(
+                patient_id=patient.id,
+                test_date=today,
+                test_type="Baseline",
+                test_value=0.0,
+                test_unit="unit",
+                reference_range="N/A",
+                notes="Auto-generated baseline record for deployment validation.",
+            )
+        )
+        seeded_records.append("lab_results")
+
+    if db.query(FollowUp).count() == 0 and patient is not None:
+        db.add(
+            FollowUp(
+                patient_id=patient.id,
+                follow_up_date=today,
+                follow_up_type="system_bootstrap",
+                provider="System Bootstrap",
+                notes="Auto-generated baseline record for deployment validation.",
+            )
+        )
+        seeded_records.append("follow_ups")
+
+    if db.query(DataUpload).count() == 0:
+        db.add(
+            DataUpload(
+                filename="bootstrap_seed.csv",
+                file_type="system_seed",
+                uploaded_by_id=admin_user_id,
+                status="completed",
+                records_added=1,
+                records_updated=0,
+                total_rows=1,
+                successful_rows=1,
+                failed_rows=0,
+                processing_details=json.dumps(
+                    {
+                        "source": "startup_preflight",
+                        "note": "Auto-generated baseline data. Do not use for clinical care.",
+                    }
+                ),
+            )
+        )
+        seeded_records.append("data_uploads")
 
 
 def run_database_preflight_checks() -> Dict[str, Any]:
@@ -56,6 +223,12 @@ def run_database_preflight_checks() -> Dict[str, Any]:
         "warnings": [],
         "errors": [],
         "storage": {},
+        "bootstrap": {
+            "admin_status": "unknown",
+            "admin_username": None,
+            "seeded_records": [],
+            "warnings": [],
+        },
     }
 
     db = SessionLocal()
@@ -83,6 +256,11 @@ def run_database_preflight_checks() -> Dict[str, Any]:
             )
             report["ready"] = False
             return report
+
+        # Bootstrap defaults on fresh databases (idempotent).
+        admin_user_id = _ensure_default_admin(db, report)
+        _ensure_baseline_records(db, report, admin_user_id)
+        db.commit()
 
         # Relevant data checks (non-fatal warning if missing admin)
         admin_count = db.execute(

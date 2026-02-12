@@ -18,6 +18,8 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
 
       # Safe production defaults
       - key: ENVIRONMENT
@@ -32,6 +34,16 @@ services:
         value: "180"
       - key: STARTUP_PREFLIGHT_STRICT
         value: "true"
+      - key: BOOTSTRAP_DEFAULT_ADMIN_ENABLED
+        value: "true"
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+      - key: DEFAULT_ADMIN_EMAIL
+        value: admin@research-dashboard.local
+      - key: BOOTSTRAP_BASELINE_DATA_ENABLED
+        value: "true"
+      - key: BOOTSTRAP_DEFAULT_MRN
+        value: BETA-TEST-0001
       - key: SUPABASE_STORAGE_BUCKET
         value: research-dashboard-storage
       - key: SUPABASE_STORAGE_REQUIRED
