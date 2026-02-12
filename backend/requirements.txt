@@ -19,6 +19,7 @@ cryptography>=41.0.0
 # PyCap>=1.0.0
 aiofiles>=23.2.1
 httpx>=0.25.2
+supabase>=2.8.1
 pyotp>=2.9.0
 qrcode[pil]>=7.4.2
 # Advanced analytics and ML

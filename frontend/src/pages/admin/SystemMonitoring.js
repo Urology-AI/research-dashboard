@@ -30,19 +30,33 @@ import { useAuth } from '../../contexts/AuthContext';
 function SystemMonitoring() {
   const { user } = useAuth();
   const [healthStatus, setHealthStatus] = useState(null);
+  const [databaseStatus, setDatabaseStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadHealthStatus = useCallback(async () => {
     try {
-      const response = await api.get('/health');
-      setHealthStatus(response.data);
+      const [healthResponse, dbResponse] = await Promise.all([
+        api.get('/health'),
+        api.get('/health/database'),
+      ]);
+      setHealthStatus(healthResponse.data);
+      setDatabaseStatus(dbResponse.data);
     } catch (err) {
       setError(err.message);
       setHealthStatus({
         status: 'offline',
         secure: false,
         message: 'Unable to connect to server',
+      });
+      setDatabaseStatus({
+        status: 'degraded',
+        database: {
+          ready: false,
+          schema_ok: false,
+          crud_ok: false,
+          data_checks: { has_admin_user: false },
+        },
       });
     } finally {
       setLoading(false);
@@ -152,6 +166,46 @@ function SystemMonitoring() {
             <TableContainer>
               <Table>
                 <TableBody>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Database Ready</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={databaseStatus?.database?.ready ? 'Ready' : 'Not Ready'}
+                        color={databaseStatus?.database?.ready ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Database CRUD Check</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={databaseStatus?.database?.crud_ok ? 'Pass' : 'Fail'}
+                        color={databaseStatus?.database?.crud_ok ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Schema Check</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={databaseStatus?.database?.schema_ok ? 'Pass' : 'Fail'}
+                        color={databaseStatus?.database?.schema_ok ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Admin User Present</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={databaseStatus?.database?.data_checks?.has_admin_user ? 'Yes' : 'No'}
+                        color={databaseStatus?.database?.data_checks?.has_admin_user ? 'success' : 'warning'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Environment</TableCell>
                     <TableCell>

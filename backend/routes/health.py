@@ -4,6 +4,7 @@ Health check and info endpoints
 from fastapi import APIRouter, Request
 from datetime import datetime
 import os
+from core.preflight import run_database_preflight_checks
 
 router = APIRouter()
 
@@ -47,4 +48,18 @@ async def health_check(request: Request):
         "timestamp": datetime.utcnow().isoformat(),
         "service": "Research Dashboard API",
         "environment": environment
+    }
+
+
+@router.get("/health/database")
+async def database_health_check():
+    """
+    Database health endpoint.
+    Validates schema/readiness and CRUD capability checks.
+    """
+    report = run_database_preflight_checks()
+    return {
+        "status": "online" if report.get("ready") else "degraded",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": report,
     }

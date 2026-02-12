@@ -14,6 +14,9 @@ warnings.filterwarnings('ignore', message='.*bcrypt version.*', category=UserWar
 
 from core.database import Base, engine
 from core.db_migration import migrate_database
+from core.preflight import run_startup_preflight
+import models  # noqa: F401
+from core.audit import AuditLog  # noqa: F401
 from middleware.security import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -51,6 +54,14 @@ Base.metadata.create_all(bind=engine)
 
 # Run migration on startup (runs automatically when server starts)
 migrate_database()
+
+# Verify DB readiness on startup.
+environment = os.getenv("ENVIRONMENT", "development").lower()
+strict_preflight = os.getenv(
+    "STARTUP_PREFLIGHT_STRICT",
+    "true" if environment == "production" else "false",
+).lower() == "true"
+run_startup_preflight(strict=strict_preflight)
 
 # Create FastAPI app
 app = FastAPI(

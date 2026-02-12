@@ -78,6 +78,12 @@ Use Supabase for PostgreSQL, Render for the FastAPI backend, and GitHub Pages fo
 DATABASE_URL=postgresql+psycopg2://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres?sslmode=require
 ```
 
+Create a storage bucket for uploads:
+
+- Go to `Storage -> Buckets`
+- Create bucket: `research-dashboard-storage`
+- Keep it private (backend uses service-role key for uploads)
+
 ### 2) Deploy Backend on Render
 
 Create a new **Web Service** on Render and point it at this repo:
@@ -92,9 +98,13 @@ Set these environment variables in Render:
 DATABASE_URL=<supabase-connection-string>
 SECRET_KEY=<strong-random-secret>
 ENCRYPTION_KEY=<fernet-key>
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
 ENVIRONMENT=production
 ALLOWED_ORIGINS=https://urology-ai.github.io
 FORCE_HTTPS=true
+SUPABASE_STORAGE_BUCKET=research-dashboard-storage
+SUPABASE_STORAGE_REQUIRED=true
 ```
 
 ### 3) Deploy Frontend on GitHub Pages

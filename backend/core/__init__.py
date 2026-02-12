@@ -12,6 +12,7 @@ from .auth import (
     verify_token,
 )
 from .db_migration import migrate_database
+from .preflight import run_database_preflight_checks, run_startup_preflight
 from .audit import AuditLog, log_audit_event, get_audit_logs
 from .security import (
     get_secret_key,
@@ -39,6 +40,9 @@ __all__ = [
     "verify_token",
     # Migration
     "migrate_database",
+    # Preflight checks
+    "run_database_preflight_checks",
+    "run_startup_preflight",
     # Audit (HIPAA compliance)
     "AuditLog",
     "log_audit_event",
