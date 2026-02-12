@@ -29,11 +29,15 @@ def hash_password_direct(password: str) -> str:
 
 def verify_password_direct(password: str, hashed: str) -> bool:
     """Verify password using bcrypt directly"""
-    password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        password_bytes = password_bytes[:72]
-    hashed_bytes = hashed.encode('utf-8')
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+    try:
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        hashed_bytes = hashed.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        # Treat invalid/malformed stored hashes as non-matching credentials.
+        return False
 
 
 class User(Base):

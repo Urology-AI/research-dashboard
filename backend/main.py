@@ -94,6 +94,10 @@ def _get_allowed_origins() -> list[str]:
     return normalized
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -132,16 +136,32 @@ if rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware, requests_per_minute=rate_limit_requests)
 
 # CORS middleware (configure for production)
-allowed_origins = _get_allowed_origins()
-print(f"CORS allowed origins: {allowed_origins}")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["X-Total-Count"],
-)
+cors_allow_all = _env_bool("CORS_ALLOW_ALL", False)
+if cors_allow_all:
+    print("CORS mode: ALLOW ALL origins (temporary/insecure).")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Total-Count"],
+    )
+else:
+    allowed_origins = _get_allowed_origins()
+    allow_credentials = _env_bool("CORS_ALLOW_CREDENTIALS", True)
+    print(
+        f"CORS mode: restricted. origins={allowed_origins}, "
+        f"allow_credentials={allow_credentials}"
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=allow_credentials,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["X-Total-Count"],
+    )
 
 # Register routers - only data viewing, analytics, and system management
 app.include_router(health_router)

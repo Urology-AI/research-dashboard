@@ -28,6 +28,8 @@ services:
         value: "true"
       - key: ALLOWED_ORIGINS
         value: https://urology-ai.github.io
+      - key: CORS_ALLOW_ALL
+        value: "true"
       - key: RATE_LIMIT_ENABLED
         value: "true"
       - key: RATE_LIMIT_REQUESTS_PER_MINUTE
