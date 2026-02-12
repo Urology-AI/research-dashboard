@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/research-dashboard/static/css/main.219229de.css",
+    "main.js": "/research-dashboard/static/js/main.d69b5a87.js",
+    "index.html": "/research-dashboard/index.html",
+    "main.219229de.css.map": "/research-dashboard/static/css/main.219229de.css.map",
+    "main.d69b5a87.js.map": "/research-dashboard/static/js/main.d69b5a87.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.219229de.css",
+    "static/js/main.d69b5a87.js"
+  ]
+}
