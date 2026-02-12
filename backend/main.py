@@ -136,7 +136,7 @@ if rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware, requests_per_minute=rate_limit_requests)
 
 # CORS middleware (configure for production)
-cors_allow_all = _env_bool("CORS_ALLOW_ALL", False)
+cors_allow_all = _env_bool("CORS_ALLOW_ALL", True)
 if cors_allow_all:
     print("CORS mode: ALLOW ALL origins (temporary/insecure).")
     app.add_middleware(
