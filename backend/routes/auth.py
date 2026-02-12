@@ -36,110 +36,122 @@ async def login(
     """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
-    user = db.query(User).filter(User.username == form_data.username).first()
-    
-    # Log login attempt (success or failure)
-    if not user or not user.verify_password(form_data.password):
-        log_audit_event(
-            db=db,
-            user_id=user.id if user else 0,
-            username=form_data.username,
-            action="login_failed",
-            resource_type="authentication",
+    try:
+        user = db.query(User).filter(User.username == form_data.username).first()
+
+        # Log login attempt (success or failure)
+        if not user or not user.verify_password(form_data.password):
+            log_audit_event(
+                db=db,
+                user_id=user.id if user else 0,
+                username=form_data.username,
+                action="login_failed",
+                resource_type="authentication",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=False,
+                error_message="Invalid credentials"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user.is_active:
+            log_audit_event(
+                db=db,
+                user_id=user.id,
+                username=user.username,
+                action="login_failed",
+                resource_type="authentication",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=False,
+                error_message="Account inactive"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+        # Check if 2FA is enabled (only if dependencies are available)
+        try:
+            from models.user_2fa import User2FA
+            two_fa = db.query(User2FA).filter(
+                User2FA.user_id == user.id,
+                User2FA.is_enabled == "true"
+            ).first()
+        except Exception:
+            # If User2FA model doesn't exist or table not created yet, skip 2FA check
+            two_fa = None
+
+        # If 2FA enabled, return token indicating 2FA required
+        if two_fa:
+            # Create a temporary token for 2FA verification
+            temp_token = create_access_token(
+                data={"sub": user.username, "2fa_required": True},
+                expires_delta=timedelta(minutes=5),
+            )
+            return {
+                "access_token": temp_token,
+                "token_type": "bearer",
+                "requires_2fa": True,
+                "user": _to_user_response(user)
+            }
+
+        # Update last login
+        user.last_login = datetime.utcnow()
+
+        # Create access token
+        access_token = create_access_token(data={"sub": user.username})
+
+        # Create user session record
+        expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        session = UserSession(
+            user_id=user.id,
+            session_token=access_token,
             ip_address=ip_address,
             user_agent=user_agent,
-            success=False,
-            error_message="Invalid credentials"
+            created_at=datetime.utcnow(),
+            last_activity=datetime.utcnow(),
+            expires_at=expires_at,
+            is_active="true"
         )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    if not user.is_active:
+        try:
+            db.add(session)
+            db.commit()
+        except Exception:
+            # Do not block login if session tracking insert fails.
+            db.rollback()
+
+        # Log successful login
         log_audit_event(
             db=db,
             user_id=user.id,
             username=user.username,
-            action="login_failed",
+            action="login",
             resource_type="authentication",
             ip_address=ip_address,
             user_agent=user_agent,
-            success=False,
-            error_message="Account inactive"
+            success=True
         )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
-    
-    # Check if 2FA is enabled (only if dependencies are available)
-    try:
-        from models.user_2fa import User2FA
-        two_fa = db.query(User2FA).filter(
-            User2FA.user_id == user.id,
-            User2FA.is_enabled == "true"
-        ).first()
-    except Exception:
-        # If User2FA model doesn't exist or table not created yet, skip 2FA check
-        two_fa = None
-    
-    # If 2FA enabled, return token indicating 2FA required
-    if two_fa:
-        # Create a temporary token for 2FA verification
-        temp_token = create_access_token(data={"sub": user.username, "2fa_required": True}, expires_delta=timedelta(minutes=5))
+
         return {
-            "access_token": temp_token,
+            "access_token": access_token,
             "token_type": "bearer",
-            "requires_2fa": True,
+            "requires_2fa": False,
             "user": _to_user_response(user)
         }
-    
-    # Update last login
-    user.last_login = datetime.utcnow()
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user.username})
-    
-    # Create user session record
-    expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    session = UserSession(
-        user_id=user.id,
-        session_token=access_token,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        created_at=datetime.utcnow(),
-        last_activity=datetime.utcnow(),
-        expires_at=expires_at,
-        is_active="true"
-    )
-    try:
-        db.add(session)
-        db.commit()
-    except Exception:
-        # Do not block login if session tracking insert fails.
+    except HTTPException:
+        raise
+    except Exception as exc:
         db.rollback()
-    
-    # Log successful login
-    log_audit_event(
-        db=db,
-        user_id=user.id,
-        username=user.username,
-        action="login",
-        resource_type="authentication",
-        ip_address=ip_address,
-        user_agent=user_agent,
-        success=True
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "requires_2fa": False,
-        "user": _to_user_response(user)
-    }
+        print(f"Unhandled login error: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed due to server error",
+        )
 
 
 @router.post("/register", response_model=UserResponse)
