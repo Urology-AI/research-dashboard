@@ -47,7 +47,7 @@ services:
       - key: DEFAULT_ADMIN_USERNAME
         value: admin
       - key: DEFAULT_ADMIN_EMAIL
-        value: admin@research-dashboard.local
+        value: admin@research-dashboard.app
       - key: BOOTSTRAP_BASELINE_DATA_ENABLED
         value: "true"
       - key: BOOTSTRAP_DEFAULT_MRN

@@ -59,8 +59,8 @@ def _ensure_default_admin(db, report: Dict[str, Any]) -> Optional[int]:
 
     username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin").strip() or "admin"
     email = (
-        os.getenv("DEFAULT_ADMIN_EMAIL", "admin@research-dashboard.local").strip()
-        or "admin@research-dashboard.local"
+        os.getenv("DEFAULT_ADMIN_EMAIL", "admin@research-dashboard.app").strip()
+        or "admin@research-dashboard.app"
     )
     password = (
         os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMeNow123!").strip()

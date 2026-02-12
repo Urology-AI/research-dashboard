@@ -8,13 +8,16 @@ from models.enums import UserRole
 
 
 class UserBase(BaseModel):
-    email: EmailStr
+    # Response models should tolerate legacy/special-use emails already in DB.
+    email: str
     username: str
     full_name: Optional[str] = None
     role: Optional[UserRole] = UserRole.CLINICIAN
 
 
 class UserCreate(UserBase):
+    # Keep strict validation for newly created users.
+    email: EmailStr
     password: str
 
 
