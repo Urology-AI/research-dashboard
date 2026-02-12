@@ -7,6 +7,9 @@ import os
 import re
 from datetime import datetime
 from typing import Any, Dict, Optional
+from urllib import error as urlerror
+from urllib import request as urlrequest
+from urllib.parse import quote
 from uuid import uuid4
 
 
@@ -31,20 +34,43 @@ def _sanitize_filename(filename: str) -> str:
     return safe.strip("._") or "upload.bin"
 
 
-def _get_supabase_client():
-    """Create a Supabase admin client using service-role credentials."""
-    config = get_storage_config()
+def _storage_headers(config: Dict[str, Any], content_type: Optional[str] = None) -> Dict[str, str]:
+    headers = {
+        "apikey": config["service_role_key"],
+        "Authorization": f"Bearer {config['service_role_key']}",
+    }
+    if content_type:
+        headers["Content-Type"] = content_type
+    return headers
+
+
+def _storage_api_request(
+    config: Dict[str, Any],
+    path: str,
+    *,
+    method: str = "GET",
+    body: Optional[bytes] = None,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 20,
+) -> tuple[int, bytes]:
+    """Perform a Supabase Storage REST API request."""
     if not config["configured"]:
         raise RuntimeError("Supabase storage is not configured")
 
     try:
-        from supabase import create_client
-    except ImportError as exc:
-        raise RuntimeError(
-            "Supabase client not installed. Add dependency: supabase"
-        ) from exc
-
-    return create_client(config["url"], config["service_role_key"])
+        url = f"{config['url'].rstrip('/')}/storage/v1/{path.lstrip('/')}"
+        req = urlrequest.Request(url, data=body, method=method)
+        for key, value in (headers or {}).items():
+            req.add_header(key, value)
+        with urlrequest.urlopen(req, timeout=timeout) as response:
+            return response.status, response.read()
+    except urlerror.HTTPError as exc:
+        body_text = ""
+        try:
+            body_text = exc.read().decode("utf-8")
+        except Exception:  # noqa: BLE001
+            body_text = str(exc.reason)
+        raise RuntimeError(f"Storage API HTTP {exc.code}: {body_text or exc.reason}") from exc
 
 
 def upload_bytes_to_supabase_storage(
@@ -64,16 +90,22 @@ def upload_bytes_to_supabase_storage(
     if not config["configured"]:
         raise RuntimeError("Supabase storage is not configured")
 
-    client = _get_supabase_client()
     safe_filename = _sanitize_filename(filename)
     date_prefix = datetime.utcnow().strftime("%Y/%m/%d")
     object_path = f"{folder}/{date_prefix}/{uuid4().hex}_{safe_filename}"
-
-    file_options = {
-        "upsert": "false",
-        "content-type": content_type or "application/octet-stream",
-    }
-    client.storage.from_(config["bucket"]).upload(object_path, content, file_options=file_options)
+    full_path = quote(f"{config['bucket']}/{object_path}", safe="/")
+    status, _ = _storage_api_request(
+        config,
+        f"object/{full_path}",
+        method="POST",
+        body=bytes(content),
+        headers={
+            **_storage_headers(config, content_type or "application/octet-stream"),
+            "x-upsert": "false",
+        },
+    )
+    if status not in (200, 201):
+        raise RuntimeError(f"Storage upload failed with status {status}")
 
     return {
         "bucket": config["bucket"],
@@ -88,8 +120,15 @@ def delete_from_supabase_storage(path: str) -> None:
     config = get_storage_config()
     if not config["configured"]:
         return
-    client = _get_supabase_client()
-    client.storage.from_(config["bucket"]).remove([path])
+    full_path = quote(f"{config['bucket']}/{path}", safe="/")
+    status, _ = _storage_api_request(
+        config,
+        f"object/{full_path}",
+        method="DELETE",
+        headers=_storage_headers(config),
+    )
+    if status not in (200, 204):
+        raise RuntimeError(f"Storage delete failed with status {status}")
 
 
 def run_storage_preflight_check() -> Dict[str, Any]:
@@ -118,6 +157,19 @@ def run_storage_preflight_check() -> Dict[str, Any]:
     probe_content = b"storage preflight probe"
     probe_name = "preflight.txt"
     try:
+        # Verify the configured bucket exists and is visible to the service role key.
+        list_status, list_payload = _storage_api_request(
+            config,
+            "bucket",
+            method="GET",
+            headers=_storage_headers(config),
+        )
+        if list_status not in (200, 204):
+            raise RuntimeError(f"Storage bucket list failed with status {list_status}")
+        payload_text = (list_payload or b"").decode("utf-8")
+        if config["bucket"] not in payload_text:
+            raise RuntimeError(f"Storage bucket '{config['bucket']}' not found")
+
         upload_meta = upload_bytes_to_supabase_storage(
             probe_content,
             probe_name,

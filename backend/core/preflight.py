@@ -263,13 +263,12 @@ def run_database_preflight_checks() -> Dict[str, Any]:
         db.commit()
 
         # Relevant data checks (non-fatal warning if missing admin)
-        admin_count = db.execute(
-            text("SELECT COUNT(*) FROM users WHERE role = :role"),
-            {"role": "admin"},
-        ).scalar()
-        patient_count = db.execute(text("SELECT COUNT(*) FROM patients")).scalar()
-        admin_count = int(admin_count or 0)
-        patient_count = int(patient_count or 0)
+        from models import Patient, User, UserRole
+
+        admin_count = int(
+            db.query(User).filter(User.role == UserRole.ADMIN).count() or 0
+        )
+        patient_count = int(db.query(Patient).count() or 0)
 
         report["data_checks"]["admin_users"] = admin_count
         report["data_checks"]["patients"] = patient_count
