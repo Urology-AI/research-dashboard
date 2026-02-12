@@ -21,7 +21,10 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 def _to_user_response(user: User) -> UserResponse:
-    return UserResponse.model_validate(user, from_attributes=True)
+    # Support both Pydantic v2 (model_validate) and v1 (from_orm).
+    if hasattr(UserResponse, "model_validate"):
+        return UserResponse.model_validate(user, from_attributes=True)
+    return UserResponse.from_orm(user)
 
 
 @router.post("/login", response_model=Token)
