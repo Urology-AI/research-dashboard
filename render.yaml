@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: research-dashboard-api
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers
+    autoDeploy: true
+    envVars:
+      # Required secrets (set manually in Render dashboard)
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+
+      # Safe production defaults
+      - key: ENVIRONMENT
+        value: production
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: ALLOWED_ORIGINS
+        value: https://urology-ai.github.io
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS_PER_MINUTE
+        value: "180"
