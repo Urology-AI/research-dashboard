@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { ResearchProvider } from './contexts/ResearchContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import BackendHealthCheck from './components/BackendHealthCheck';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import PatientList from './pages/PatientList';
@@ -45,16 +46,17 @@ function AppContent() {
   return (
         <MUIThemeProvider theme={theme}>
           <CssBaseline />
-          <Router basename={APP_BASE_PATH || undefined}>
-            <AuthProvider>
-              <ResearchProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/*"
-              element={
-                <Layout>
-                  <Routes>
+          <BackendHealthCheck>
+            <Router basename={APP_BASE_PATH || undefined}>
+              <AuthProvider>
+                <ResearchProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/*"
+                element={
+                  <Layout>
+                    <Routes>
                     <Route
                       path="/"
                       element={

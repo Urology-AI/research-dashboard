@@ -33,7 +33,8 @@ function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Check health and connection security on mount
+  // Monitor health status (backend already verified by BackendHealthCheck before login screen)
+  // This check is for status display and to detect if backend goes offline after initial check
   useEffect(() => {
     const checkHealth = async () => {
       try {
@@ -61,7 +62,7 @@ function Login() {
     };
 
     checkHealth();
-    // Check health every 30 seconds
+    // Check health every 30 seconds for status updates
     const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
   }, []);
