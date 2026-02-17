@@ -39,8 +39,13 @@ jobs:
         working-directory: frontend
         env:
           CI: "false"
+          PUBLIC_URL: "/research-dashboard"
           REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL != '' && vars.REACT_APP_API_URL || 'http://localhost:8000' }}
         run: npm run build
+
+      - name: Copy index.html to 404.html for GitHub Pages routing
+        working-directory: frontend
+        run: cp build/index.html build/404.html
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
