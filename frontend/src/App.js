@@ -247,10 +247,11 @@ function AppContent() {
                 </Layout>
               }
             />
-          </Routes>
-              </ResearchProvider>
-        </AuthProvider>
-      </Router>
+            </Routes>
+                </ResearchProvider>
+              </AuthProvider>
+            </Router>
+          </BackendHealthCheck>
     </MUIThemeProvider>
   );
 }
