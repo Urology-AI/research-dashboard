@@ -24,7 +24,6 @@ class Tag(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False, index=True)
     color = Column(String, default="#1976d2")  # Hex color for UI
-    description = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Many-to-many relationship with patients

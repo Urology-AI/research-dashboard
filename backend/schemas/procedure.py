@@ -14,17 +14,14 @@ class ProcedureBase(BaseModel):
     provider: Optional[str] = None
     facility: Optional[str] = None
     notes: Optional[str] = None
-    complications: Optional[str] = None
     outcome: Optional[str] = None
     cores_positive: Optional[int] = None
     cores_total: Optional[int] = None
     gleason_score: Optional[int] = None
     pirads_score: Optional[int] = None
     lesion_location: Optional[str] = None
-    lesion_size: Optional[float] = None
     operative_time: Optional[int] = None
     blood_loss: Optional[float] = None
-    length_of_stay: Optional[int] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
 

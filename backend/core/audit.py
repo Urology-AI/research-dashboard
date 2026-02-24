@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship
 from .database import Base
 from typing import Optional
 import json
+from .rls import set_rls_context
 
 
 class AuditLog(Base):

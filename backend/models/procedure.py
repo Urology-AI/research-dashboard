@@ -21,7 +21,6 @@ class Procedure(Base):
     
     # Procedure-specific data
     notes = Column(Text)
-    complications = Column(Text)
     outcome = Column(String)
     
     # For biopsies
@@ -32,12 +31,10 @@ class Procedure(Base):
     # For MRI
     pirads_score = Column(Integer)  # PI-RADS score (1-5)
     lesion_location = Column(String)
-    lesion_size = Column(Float)  # in cm
     
     # For surgeries
     operative_time = Column(Integer)  # in minutes
     blood_loss = Column(Float)  # in ml
-    length_of_stay = Column(Integer)  # in days
     
     # Custom fields for procedures
     custom_fields = Column(Text)  # JSON string for additional procedure fields

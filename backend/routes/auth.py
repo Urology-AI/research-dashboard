@@ -104,7 +104,12 @@ async def login(
         if two_fa:
             # Create a temporary token for 2FA verification
             temp_token = create_access_token(
-                data={"sub": user.username, "2fa_required": True},
+                data={
+                    "sub": user.username, 
+                    "2fa_required": True,
+                    "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                    "user_id": user.id
+                },
                 expires_delta=timedelta(minutes=5),
             )
             return {
@@ -117,8 +122,14 @@ async def login(
         # Update last login
         user.last_login = datetime.utcnow()
 
-        # Create access token
-        access_token = create_access_token(data={"sub": user.username})
+        # Create access token with RLS claims
+        access_token = create_access_token(
+            data={
+                "sub": user.username,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "user_id": user.id
+            }
+        )
 
         # Create user session record
         expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

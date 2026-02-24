@@ -8,6 +8,7 @@ from schemas import DashboardStats
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 from services.analytics import (
     get_dashboard_stats,
     get_psa_trends,
@@ -23,10 +24,21 @@ router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
 
 @router.get("/dashboard-stats", response_model=DashboardStats)
-async def get_dashboard_statistics(db: Session = Depends(get_db)):
+async def get_dashboard_statistics(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
     """
     Get dashboard statistics and overview
+    RLS enabled: Row Level Security restricts analytics data
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers and clinicians can view analytics
+    RLSMixin.check_rls_permissions(request, "researcher")
+    
     return get_dashboard_stats(db)
 
 
@@ -38,8 +50,15 @@ async def get_psa_trend_data(
     current_user = Depends(get_current_active_user)
 ):
     """
-    Get PSA trend data for a patient
+    Get PSA trends for a specific patient
+    RLS enabled: Row Level Security restricts patient data access
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers and clinicians can view analytics
+    RLSMixin.check_rls_permissions(request, "researcher")
+    
     trends = get_psa_trends(patient_id, db)
     
     # Log access to patient-specific analytics (HIPAA)

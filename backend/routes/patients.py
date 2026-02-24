@@ -13,6 +13,7 @@ from schemas import PatientCreate, PatientResponse, PatientFilter
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/patients", tags=["Patients"])
 
@@ -29,8 +30,15 @@ async def get_patients(
     """
     Get list of patients with optional filters
     HIPAA compliant: All access is logged for audit trail
+    RLS enabled: Row Level Security restricts access based on user role
     """
     from sqlalchemy import and_
+    
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers, clinicians, and admins can view patients
+    RLSMixin.check_rls_permissions(request, "researcher")
     
     query = db.query(Patient)
     

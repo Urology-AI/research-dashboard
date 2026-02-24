@@ -27,6 +27,7 @@ from schemas.user_2fa import (
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent, encrypt_sensitive_data, decrypt_sensitive_data
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/auth/2fa", tags=["Two-Factor Authentication"])
 
@@ -38,9 +39,15 @@ async def setup_2fa(
     db: Session = Depends(get_db)
 ):
     """
-    Setup 2FA for current user
-    Generates secret key and backup codes
+    Setup two-factor authentication for current user
+    RLS enabled: Users can only manage their own 2FA
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Users can only manage their own 2FA settings
+    RLSMixin.can_access_resource(request, current_user.id)
+    
     if not HAS_2FA_DEPS:
         raise HTTPException(status_code=503, detail="2FA dependencies not installed. Please install pyotp and qrcode[pil]")
     # Check if 2FA already enabled

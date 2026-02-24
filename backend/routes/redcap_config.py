@@ -13,6 +13,7 @@ from schemas.redcap_config import RedcapConfigCreate, RedcapConfigUpdate, Redcap
 from core.auth import get_db, get_current_admin_user
 from core.security import get_client_ip, get_user_agent, encrypt_sensitive_data, decrypt_sensitive_data
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/admin/redcap-configs", tags=["REDCap Configuration"])
 
@@ -25,7 +26,14 @@ async def get_redcap_configs(
 ):
     """
     Get all REDCap configurations (admin only)
+    RLS enabled: Only admins can access REDCap configurations
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Verify admin permissions (already checked by get_current_admin_user)
+    RLSMixin.check_rls_permissions(request, "admin")
+    
     configs = db.query(RedcapConfig).order_by(RedcapConfig.created_at.desc()).all()
     
     # Log access

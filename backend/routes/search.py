@@ -13,6 +13,7 @@ from schemas import PatientResponse
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/search", tags=["Search"])
 
@@ -29,7 +30,14 @@ async def search_patients(
     Global search across patients
     Searches MRN, name, diagnosis, and other fields
     HIPAA compliant: All searches are logged
+    RLS enabled: Row Level Security restricts search results
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers and clinicians can search
+    RLSMixin.check_rls_permissions(request, "researcher")
+    
     if not q or len(q.strip()) < 1:
         return []
     

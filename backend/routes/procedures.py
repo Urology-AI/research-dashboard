@@ -11,6 +11,7 @@ from schemas import ProcedureCreate, ProcedureResponse
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(tags=["Procedures"])
 
@@ -24,7 +25,14 @@ async def get_patient_procedures(
 ):
     """
     Get all procedures for a patient
+    RLS enabled: Row Level Security restricts access based on user role
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers, clinicians, and admins can view procedures
+    RLSMixin.check_rls_permissions(request, "researcher")
+    
     procedures = db.query(Procedure).filter(Procedure.patient_id == patient_id).all()
     
     # Log access to procedure data (HIPAA audit requirement)

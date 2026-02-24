@@ -45,22 +45,31 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # Add nonce-like claims so repeated logins don't collide on identical JWT strings.
-    to_encode.update({"exp": expire, "iat": int(now.timestamp()), "jti": uuid4().hex})
+    # Include RLS claims for Supabase Row Level Security
+    to_encode.update({
+        "exp": expire, 
+        "iat": int(now.timestamp()), 
+        "jti": uuid4().hex,
+        "role": data.get("role", "clinician"),  # RLS role claim
+        "user_id": str(data.get("user_id", 0))  # RLS user_id claim
+    })
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str, credentials_exception):
     """
-    Verify JWT token
+    Verify JWT token and return username with RLS claims
     Raises credentials_exception if token is invalid or expired
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        role: str = payload.get("role", "clinician")
+        user_id: str = payload.get("user_id", "0")
         if username is None:
             raise credentials_exception
-        return username
+        return username, role, user_id
     except JWTError as e:
         # Don't expose JWT error details to client (security best practice)
         raise credentials_exception
@@ -77,7 +86,7 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        username = verify_token(token, credentials_exception)
+        username, role, user_id = verify_token(token, credentials_exception)
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             # Log failed authentication attempt
@@ -110,6 +119,10 @@ async def get_current_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is inactive"
             )
+        
+        # Store RLS claims in request state for database access
+        request.state.rls_role = role
+        request.state.rls_user_id = user_id
         
         # Check and update session (if it exists)
         # Note: Sessions may not exist for tokens created before session tracking was implemented

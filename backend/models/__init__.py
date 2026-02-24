@@ -14,6 +14,8 @@ from .redcap_config import RedcapConfig
 from .patient_tag import Tag
 from .user_session import UserSession
 from .user_2fa import User2FA
+from .dataset import Dataset
+from .imported_patient import ImportedPatient
 
 # Password hashing utilities (for backward compatibility)
 from .user import hash_password_direct, verify_password_direct
@@ -32,6 +34,8 @@ __all__ = [
     "Tag",
     "UserSession",
     "User2FA",
+    "Dataset",
+    "ImportedPatient",
     "hash_password_direct",
     "verify_password_direct",
 ]

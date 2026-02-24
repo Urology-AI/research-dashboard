@@ -13,6 +13,7 @@ from datetime import datetime
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 from models import Patient, LabResult, Procedure, User
 from services.clinical_report import generate_surgical_intelligence_pdf
 
@@ -38,7 +39,14 @@ async def get_surgical_intelligence_report(
     - Recovery forecast with confidence intervals
     
     Returns a downloadable PDF file.
+    RLS enabled: Row Level Security restricts patient report access
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - clinicians and researchers can generate reports
+    RLSMixin.check_rls_permissions(request, "clinician")
+    
     # Fetch patient with all relationships
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     

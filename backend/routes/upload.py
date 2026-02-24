@@ -16,19 +16,27 @@ from services.storage import (
     upload_bytes_to_supabase_storage,
     delete_from_supabase_storage,
 )
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api", tags=["Data Upload"])
 
 
 @router.post("/upload/excel")
 async def upload_excel(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_admin_user),  # Admin only
     db: Session = Depends(get_db)
 ):
     """
     Upload and process Excel/CSV file
+    RLS enabled: Only admins can upload data
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Verify admin permissions for data upload
+    RLSMixin.check_rls_permissions(request, "admin")
     file_path = None
     storage_info = None
     try:

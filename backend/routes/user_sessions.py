@@ -13,6 +13,7 @@ from schemas.user_session import UserSessionResponse
 from core.auth import get_db, get_current_active_user, get_current_admin_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/sessions", tags=["User Sessions"])
 
@@ -25,7 +26,14 @@ async def get_user_sessions(
 ):
     """
     Get all active user sessions (admin only)
+    RLS enabled: Only admins can view all sessions
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Verify admin permissions (already checked by get_current_admin_user)
+    RLSMixin.check_rls_permissions(request, "admin")
+    
     sessions = db.query(UserSession).filter(
         UserSession.is_active == "true"
     ).order_by(UserSession.last_activity.desc()).all()

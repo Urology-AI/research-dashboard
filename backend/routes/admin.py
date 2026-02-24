@@ -17,6 +17,7 @@ from schemas import (
 from core.auth import get_db, get_current_admin_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -30,7 +31,14 @@ async def get_all_users(
 ):
     """
     Get all users (admin only)
+    RLS enabled: Only admins can access user management
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Verify admin permissions (already checked by get_current_admin_user)
+    RLSMixin.check_rls_permissions(request, "admin")
+    
     users = db.query(User).all()
     
     log_audit_event(
@@ -364,17 +372,14 @@ STANDARD_FIELDS = {
         {"field_name": "provider", "field_label": "Provider", "field_type": "text", "is_required": False, "display_order": 2},
         {"field_name": "facility", "field_label": "Facility", "field_type": "text", "is_required": False, "display_order": 3},
         {"field_name": "notes", "field_label": "Notes", "field_type": "text", "is_required": False, "display_order": 4},
-        {"field_name": "complications", "field_label": "Complications", "field_type": "text", "is_required": False, "display_order": 5},
-        {"field_name": "outcome", "field_label": "Outcome", "field_type": "text", "is_required": False, "display_order": 6},
-        {"field_name": "cores_positive", "field_label": "Cores Positive", "field_type": "number", "is_required": False, "display_order": 7},
-        {"field_name": "cores_total", "field_label": "Cores Total", "field_type": "number", "is_required": False, "display_order": 8},
-        {"field_name": "gleason_score", "field_label": "Gleason Score", "field_type": "number", "is_required": False, "display_order": 9},
-        {"field_name": "pirads_score", "field_label": "PI-RADS Score", "field_type": "number", "is_required": False, "display_order": 10},
-        {"field_name": "lesion_location", "field_label": "Lesion Location", "field_type": "text", "is_required": False, "display_order": 11},
-        {"field_name": "lesion_size", "field_label": "Lesion Size (cm)", "field_type": "number", "is_required": False, "display_order": 12},
-        {"field_name": "operative_time", "field_label": "Operative Time (min)", "field_type": "number", "is_required": False, "display_order": 13},
-        {"field_name": "blood_loss", "field_label": "Blood Loss (ml)", "field_type": "number", "is_required": False, "display_order": 14},
-        {"field_name": "length_of_stay", "field_label": "Length of Stay (days)", "field_type": "number", "is_required": False, "display_order": 15},
+        {"field_name": "outcome", "field_label": "Outcome", "field_type": "text", "is_required": False, "display_order": 5},
+        {"field_name": "cores_positive", "field_label": "Cores Positive", "field_type": "number", "is_required": False, "display_order": 6},
+        {"field_name": "cores_total", "field_label": "Cores Total", "field_type": "number", "is_required": False, "display_order": 7},
+        {"field_name": "gleason_score", "field_label": "Gleason Score", "field_type": "number", "is_required": False, "display_order": 8},
+        {"field_name": "pirads_score", "field_label": "PI-RADS Score", "field_type": "number", "is_required": False, "display_order": 9},
+        {"field_name": "lesion_location", "field_label": "Lesion Location", "field_type": "text", "is_required": False, "display_order": 10},
+        {"field_name": "operative_time", "field_label": "Operative Time (min)", "field_type": "number", "is_required": False, "display_order": 11},
+        {"field_name": "blood_loss", "field_label": "Blood Loss (ml)", "field_type": "number", "is_required": False, "display_order": 12},
     ],
     "lab_result": [
         {"field_name": "test_date", "field_label": "Test Date", "field_type": "date", "is_required": True, "display_order": 0},

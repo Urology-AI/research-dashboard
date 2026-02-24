@@ -24,6 +24,7 @@ from core.auth import (
 )
 from core.security import get_client_ip, get_user_agent, decrypt_sensitive_data
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -38,7 +39,11 @@ async def verify_2fa_login(
     """
     Verify 2FA code during login
     Requires a temporary token from initial login
+    RLS enabled: Row Level Security for 2FA operations
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
     if not HAS_2FA_DEPS:
         raise HTTPException(status_code=503, detail="2FA dependencies not installed. Please install pyotp")
     

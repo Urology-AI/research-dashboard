@@ -16,6 +16,7 @@ from schemas import PatientResponse
 from core.auth import get_db, get_current_active_user
 from core.security import get_client_ip, get_user_agent
 from core.audit import log_audit_event
+from core.rls import RLSMixin
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
 
@@ -30,7 +31,14 @@ async def export_patients_csv(
     """
     Export patients to CSV
     HIPAA compliant: All exports are logged
+    RLS enabled: Row Level Security restricts export data
     """
+    # Set RLS context for this request
+    RLSMixin.get_db_with_rls(request, db)
+    
+    # Check RLS permissions - researchers and clinicians can export
+    RLSMixin.check_rls_permissions(request, "researcher")
+    
     # Parse filters if provided
     filter_dict = {}
     if filters:
